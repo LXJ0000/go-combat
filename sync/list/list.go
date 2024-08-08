@@ -1,4 +1,4 @@
-package list
+package _list
 
 type List[T any] interface {
 	Cap() int

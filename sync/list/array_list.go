@@ -1,4 +1,4 @@
-package list
+package _list
 
 type ArrayList[T any] struct {
 	values []T
