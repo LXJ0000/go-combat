@@ -29,6 +29,7 @@ type item struct {
 func NewLocalCache(interval time.Duration) Cache {
 	cache := &LocalCache{
 		data: make(map[string]*item),
+		close: make(chan struct{}),
 	}
 	// start a goroutine to clean up expired items every interval
 	go func() {
