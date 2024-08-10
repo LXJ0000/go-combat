@@ -14,10 +14,19 @@ var (
 
 const cleanCount = 1000
 
+type LocalCacheOption func(*LocalCache)
+
+func WithEvict(evict func(key string, value any)) LocalCacheOption {
+	return func(c *LocalCache) {
+		c.evict = evict
+	}
+}
+
 type LocalCache struct {
 	data  map[string]*item
 	mu    sync.RWMutex
 	close chan struct{}
+	evict func(key string, value any)
 }
 
 type item struct {
@@ -26,9 +35,9 @@ type item struct {
 }
 
 // NewLocalCache creates a new LocalCache with the given interval for cleaning up expired items.
-func NewLocalCache(interval time.Duration) Cache {
+func NewLocalCache(interval time.Duration, opts ...LocalCacheOption) *LocalCache {
 	cache := &LocalCache{
-		data: make(map[string]*item),
+		data:  make(map[string]*item),
 		close: make(chan struct{}),
 	}
 	// start a goroutine to clean up expired items every interval
@@ -43,7 +52,7 @@ func NewLocalCache(interval time.Duration) Cache {
 				i := 0 // count the number of items cleaned up
 				for k, v := range cache.data {
 					if !v.deadline.IsZero() && now.After(v.deadline) {
-						delete(cache.data, k)
+						cache.delete(k)
 					}
 					i++
 					if i > cleanCount {
@@ -54,6 +63,11 @@ func NewLocalCache(interval time.Duration) Cache {
 			}
 		}
 	}()
+
+	for _, opt := range opts {
+		opt(cache)
+	}
+
 	return cache
 }
 
@@ -77,7 +91,7 @@ func (c *LocalCache) Get(ctx context.Context, key string) (any, error) {
 			return nil, fmt.Errorf("local cache: %w, key: %s", errKeyNotFound, key)
 		}
 		if !item.deadline.IsZero() && now.After(item.deadline) { // double check
-			delete(c.data, key)
+			c.delete(key)
 			return nil, fmt.Errorf("local cache: %w, key: %s", errKeyNotFound, key)
 		}
 	}
@@ -104,7 +118,7 @@ func (c *LocalCache) Set(ctx context.Context, key string, value any, expiration 
 func (c *LocalCache) Delete(ctx context.Context, key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	delete(c.data, key)
+	c.delete(key)
 	return nil
 }
 
@@ -123,5 +137,16 @@ func (c *LocalCache) Close() error {
 		return nil
 	default:
 		return errors.New("cache is already closed")
+	}
+}
+
+func (c *LocalCache) delete(key string) {
+	item, ok := c.data[key]
+	if !ok {
+		return
+	}
+	delete(c.data, key)
+	if c.evict != nil {
+		c.evict(key, item.value)
 	}
 }
