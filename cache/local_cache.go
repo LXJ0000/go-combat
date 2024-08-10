@@ -103,6 +103,10 @@ func (c *LocalCache) Get(ctx context.Context, key string) (any, error) {
 func (c *LocalCache) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	return c.set(key, value, expiration)
+}
+
+func (c *LocalCache) set(key string, value any, expiration time.Duration) error {
 	var deadline time.Time
 	if expiration != 0 {
 		deadline = time.Now().Add(expiration)
@@ -123,11 +127,11 @@ func (c *LocalCache) Delete(ctx context.Context, key string) error {
 }
 
 // Exists checks if the given key exists in the cache.
-func (c *LocalCache) Exists(ctx context.Context, key string) (bool, error) {
+func (c *LocalCache) Exists(ctx context.Context, key string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	_, ok := c.data[key]
-	return ok, nil
+	return ok
 }
 
 // Close closes the cache.

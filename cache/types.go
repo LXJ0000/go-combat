@@ -16,5 +16,5 @@ type Cache interface {
 	Delete(ctx context.Context, key string) error
 
 	// Exists checks if the given key exists in the cache.
-	Exists(ctx context.Context, key string) (bool, error)
+	Exists(ctx context.Context, key string) bool
 }
