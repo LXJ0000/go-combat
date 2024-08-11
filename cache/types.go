@@ -17,4 +17,7 @@ type Cache interface {
 
 	// Exists checks if the given key exists in the cache.
 	Exists(ctx context.Context, key string) bool
+
+	// LoadAndDelete atomically loads the value for the given key and deletes it.
+	LoadAndDelete(ctx context.Context, key string) (any, error)
 }

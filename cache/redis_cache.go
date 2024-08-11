@@ -37,3 +37,8 @@ func (c *RedisCache) Delete(ctx context.Context, key string) error {
 func (c *RedisCache) Exists(ctx context.Context, key string) bool {
 	return c.cmd.Exists(ctx, key).Val() > 0
 }
+
+// LoadAndDelete returns the value for the given key and deletes it from the cache.
+func (c *RedisCache) LoadAndDelete(ctx context.Context, key string) (any, error) {
+	return c.cmd.GetDel(ctx, key).Result()
+}

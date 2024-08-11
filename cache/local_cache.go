@@ -134,6 +134,18 @@ func (c *LocalCache) Exists(ctx context.Context, key string) bool {
 	return ok
 }
 
+// LoadAndDelete returns the value for the given key and deletes it from the cache.
+func (c *LocalCache) LoadAndDelete(ctx context.Context, key string) (any, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	item, ok := c.data[key]
+	if !ok {
+		return nil, fmt.Errorf("local cache: %w, key: %s", errKeyNotFound, key)
+	}
+	c.delete(key)
+	return item.value, nil
+}
+
 // Close closes the cache.
 func (c *LocalCache) Close() error {
 	select {
