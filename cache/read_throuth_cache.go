@@ -14,7 +14,7 @@ type ReadThroughCache struct {
 	Cache
 	LoadFunc   func(ctx context.Context, key string) (any, error)
 	Expiration time.Duration
-	g          singleflight.Group
+	g          *singleflight.Group
 }
 
 func NewReadThroughCache(cache Cache, loadFunc func(ctx context.Context, key string) (any, error), expiration time.Duration) *ReadThroughCache {
