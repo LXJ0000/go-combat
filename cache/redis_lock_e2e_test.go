@@ -1,5 +1,3 @@
-//go:build e2e
-
 package _cache
 
 import (
@@ -145,6 +143,88 @@ func TestRedisCache_e2e_UnLock(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.before(t)
 			err := tt.lock.UnLock()
+			require.Equal(t, err, tt.wantErr)
+			tt.after(t)
+		})
+	}
+}
+
+func TestRedisCache_e2e_Refresh(t *testing.T) {
+	cmd := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "root",
+	})
+
+	tcs := []struct {
+		name    string
+		before  func(t *testing.T) // 准备数据
+		after   func(t *testing.T) // 清除数据
+		wantErr error
+		lock    *Lock
+	}{
+		{
+			name: "success",
+			before: func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+				defer cancel()
+				res, err := cmd.SetNX(ctx, "lock6", "6", time.Minute).Result()
+				require.NoError(t, err)
+				require.True(t, res) // 设置锁成功
+			},
+			after: func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+				defer cancel()
+				_ = cmd.Del(ctx, "lock6").Err() // 清除锁
+			},
+			wantErr: nil,
+			lock: &Lock{
+				key:        "lock6",
+				cmd:        cmd,
+				value:      "6",
+				expiration: time.Minute,
+			},
+		},
+		{
+			name: "lock not exist",
+			before: func(t *testing.T) {
+			},
+			after: func(t *testing.T) {
+			},
+			wantErr: ErrLockRefresh,
+			lock: &Lock{
+				key:        "lock6",
+				cmd:        cmd,
+				value:      "6",
+				expiration: time.Minute,
+			},
+		},
+		{
+			name: "lock by other",
+			before: func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+				defer cancel()
+				res, err := cmd.SetNX(ctx, "lock7", "88", time.Minute).Result()
+				require.NoError(t, err)
+				require.True(t, res) // 设置锁成功
+			},
+			after: func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+				defer cancel()
+				_ = cmd.Del(ctx, "lock7").Err() // 清除锁
+			},
+			wantErr: ErrLockRefresh,
+			lock: &Lock{
+				key:        "lock7",
+				cmd:        cmd,
+				value:      "99",
+				expiration: time.Minute,
+			},
+		},
+	}
+	for _, tt := range tcs {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.before(t)
+			err := tt.lock.Refresh()
 			require.Equal(t, err, tt.wantErr)
 			tt.after(t)
 		})

@@ -14,9 +14,13 @@ import (
 var (
 	ErrLockNotFound = errors.New("redis lock: unlock failed with lock not found")
 	ErrLockFail     = errors.New("redis lock: lock failed")
+	ErrLockRefresh  = errors.New("redis lock: refresh failed")
 
 	//go:embed lua/unlock.lua
 	luaUnLock string
+
+	//go:embed lua/refresh_expiration.lua
+	luaRefreshExpiration string
 )
 
 type Client struct {
@@ -33,16 +37,18 @@ func (c *Client) TryLock(ctx context.Context, key string, expiration time.Durati
 		return nil, ErrLockFail
 	}
 	return &Lock{
-		cmd:   c.cmd,
-		key:   key,
-		value: value,
+		cmd:        c.cmd,
+		key:        key,
+		value:      value,
+		expiration: expiration,
 	}, nil
 }
 
 type Lock struct {
-	cmd   redis.Cmdable
-	key   string
-	value string
+	cmd        redis.Cmdable
+	key        string
+	value      string
+	expiration time.Duration
 }
 
 func (l *Lock) UnLock() error {
@@ -55,6 +61,17 @@ func (l *Lock) UnLock() error {
 	}
 	if cnt != 1 {
 		return ErrLockNotFound
+	}
+	return nil
+}
+
+func (l *Lock) Refresh() error {
+	cnt, err := l.cmd.Eval(context.Background(), luaRefreshExpiration, []string{l.key}, l.value, l.expiration.Seconds()).Int64()
+	if err != nil {
+		return err
+	}
+	if cnt != 1 {
+		return ErrLockRefresh
 	}
 	return nil
 }
