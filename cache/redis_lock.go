@@ -49,9 +49,11 @@ type Lock struct {
 	key        string
 	value      string
 	expiration time.Duration
+	done       chan struct{}
 }
 
 func (l *Lock) UnLock() error {
+	defer close(l.done)
 	// 以下步骤必须为原子操作 这里采用 lua 脚本实现
 	// 1. 检查是否为自己加的锁
 	// 2. 解锁
@@ -74,4 +76,41 @@ func (l *Lock) Refresh(ctx context.Context) error {
 		return ErrLockRefresh
 	}
 	return nil
+}
+
+func (l *Lock) AutoRefresh(interval time.Duration, contextTimeout time.Duration) error {
+	var lock *Lock // 成功拿到锁
+	timeout := make(chan struct{}, 1)
+	ticker := time.NewTicker(interval) // 每10秒刷新一次
+	for {
+		select {
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+			if err := lock.Refresh(ctx); err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					timeout <- struct{}{}
+					cancel()
+					continue // 超时之后会进入到 case <-timeout 逻辑
+				}
+				cancel()
+				return err
+			}
+			cancel()
+		case <-l.done:
+			return nil // 主动释放锁
+		case <-timeout:
+			// 超时重试机制...
+			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+			if err := lock.Refresh(ctx); err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					timeout <- struct{}{}
+					cancel()
+					continue // 超时之后会进入到 case <-timeout 逻辑
+				}
+				cancel()
+				return err
+			}
+			cancel()
+		}
+	}
 }

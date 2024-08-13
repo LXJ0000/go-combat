@@ -306,3 +306,13 @@ func ExampleLock_Refresh() {
 	// Output:
 
 }
+
+func ExampleLock_AutoRefresh() {
+	var lock *Lock
+	go func() {
+		if err := lock.AutoRefresh(time.Second*10, time.Second); err != nil {
+			//中断业务
+		}
+	}()
+	// Output:
+}
