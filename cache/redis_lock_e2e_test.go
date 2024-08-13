@@ -2,6 +2,7 @@ package _cache
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -224,9 +225,84 @@ func TestRedisCache_e2e_Refresh(t *testing.T) {
 	for _, tt := range tcs {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.before(t)
-			err := tt.lock.Refresh()
+			err := tt.lock.Refresh(context.Background())
 			require.Equal(t, err, tt.wantErr)
 			tt.after(t)
 		})
 	}
+}
+
+func ExampleLock_Refresh() {
+	var lock *Lock // 成功拿到锁
+	done := make(chan struct{})
+	catchErr := make(chan error)
+	timeout := make(chan struct{}, 1)
+	var retry int
+	go func() {
+		ticker := time.NewTicker(time.Second * 10) // 每10秒刷新一次
+		for {
+			select {
+			case <-ticker.C:
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+				if err := lock.Refresh(ctx); err != nil {
+					if errors.Is(err, context.DeadlineExceeded) {
+						timeout <- struct{}{}
+						cancel()
+						continue // 超时之后会进入到 case <-timeout 逻辑
+					}
+					catchErr <- err
+					cancel()
+					return
+				}
+				cancel()
+				retry = 0
+			case <-done:
+				return
+			case <-timeout:
+				retry++
+				if retry >= 3 {
+					catchErr <- context.DeadlineExceeded
+					return
+				}
+				// 超时重试机制...
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+				if err := lock.Refresh(ctx); err != nil {
+					if errors.Is(err, context.DeadlineExceeded) {
+						timeout <- struct{}{}
+						cancel()
+						continue // 超时之后会进入到 case <-timeout 逻辑
+					}
+					catchErr <- err
+					cancel()
+					return
+				}
+				cancel()
+				retry = 0
+			}
+		}
+	}()
+	time.Sleep(time.Second * 10) // 模拟业务处理
+	// type 循环
+	for i := 0; i < 10; i++ {
+		select {
+		case <-catchErr:
+			// slog...
+			break
+		default:
+			// 正常的业务逻辑
+		}
+	}
+
+	// type 普通 则每个步骤都需要检测一次
+	select {
+	case <-catchErr:
+		// slog...
+		return // 中断业务
+	default:
+		// 正常的业务逻辑
+	}
+
+	done <- struct{}{}
+	// Output:
+
 }

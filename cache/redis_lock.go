@@ -65,8 +65,8 @@ func (l *Lock) UnLock() error {
 	return nil
 }
 
-func (l *Lock) Refresh() error {
-	cnt, err := l.cmd.Eval(context.Background(), luaRefreshExpiration, []string{l.key}, l.value, l.expiration.Seconds()).Int64()
+func (l *Lock) Refresh(ctx context.Context) error {
+	cnt, err := l.cmd.Eval(ctx, luaRefreshExpiration, []string{l.key}, l.value, l.expiration.Seconds()).Int64()
 	if err != nil {
 		return err
 	}
