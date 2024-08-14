@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/singleflight"
 
 	_ "embed"
 )
@@ -29,6 +30,7 @@ var (
 
 type Client struct {
 	cmd redis.Cmdable
+	g   singleflight.Group
 }
 
 func (c *Client) Lock(ctx context.Context, key string, expiration time.Duration, contextTimeout time.Duration, retry RetryStrategy) (*Lock, error) {
@@ -156,6 +158,28 @@ func (l *Lock) AutoRefresh(interval time.Duration, contextTimeout time.Duration)
 				return err
 			}
 			cancel()
+		}
+	}
+}
+
+func (c *Client) SingleflightLock(ctx context.Context, key string, expiration time.Duration, contextTimeout time.Duration, retry RetryStrategy) (*Lock, error) {
+	for {
+		var flag bool // 是否自己加的锁
+		result := c.g.DoChan(key, func() (interface{}, error) {
+			flag = true // 加锁成功
+			return c.Lock(ctx, key, expiration, contextTimeout, retry)
+		})
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case res := <-result:
+			if flag {
+				c.g.Forget(key)
+				if res.Err != nil {
+					return nil, res.Err
+				}
+				return res.Val.(*Lock), nil
+			}
 		}
 	}
 }

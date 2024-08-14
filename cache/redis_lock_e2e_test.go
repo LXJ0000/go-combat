@@ -287,7 +287,7 @@ func ExampleLock_Refresh() {
 		select {
 		case <-catchErr:
 			// slog...
-			break
+			return
 		default:
 			// 正常的业务逻辑
 		}
