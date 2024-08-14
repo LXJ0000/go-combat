@@ -32,7 +32,7 @@ func TestLocalCache_Get(t *testing.T) {
 			key:  "key2",
 			cache: func() *LocalCache {
 				c := NewLocalCache(time.Second * 10)
-				err := c.Set(context.Background(), "key2", "value2", 0)
+				err := c.Set(context.Background(), "key2", []byte("value2"), 0)
 				require.NoError(t, err)
 				return c
 			},
@@ -44,7 +44,7 @@ func TestLocalCache_Get(t *testing.T) {
 			key:  "key3",
 			cache: func() *LocalCache {
 				c := NewLocalCache(time.Second*10, func(lc *LocalCache) {})
-				err := c.Set(context.Background(), "key3", "value3", time.Second)
+				err := c.Set(context.Background(), "key3", []byte("value3"), time.Second)
 				require.NoError(t, err)
 				time.Sleep(time.Second * 2)
 				return c
@@ -66,10 +66,10 @@ func TestLocalCache_Get(t *testing.T) {
 
 func TestLocalCache_Loop(t *testing.T) {
 	var cnt int
-	c := NewLocalCache(time.Second, WithEvict(func(key string, value any) {
+	c := NewLocalCache(time.Second, WithEvict(func(key string, value []byte) {
 		cnt++
 	}))
-	err := c.Set(context.Background(), "key1", "value1", time.Second)
+	err := c.Set(context.Background(), "key1", []byte("value1"), time.Second)
 	require.NoError(t, err)
 	time.Sleep(time.Second * 5)
 	c.mu.Lock()

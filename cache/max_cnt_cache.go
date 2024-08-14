@@ -24,7 +24,7 @@ func NewMaxCntCache(maxCnt int32, c *LocalCache) *MaxCntCache {
 		maxCnt:     maxCnt,
 	}
 	originEvict := cache.evict
-	cache.evict = func(key string, value any) {
+	cache.evict = func(key string, value []byte) {
 		atomic.AddInt32(&cache.cnt, -1)
 		if originEvict != nil {
 			originEvict(key, value)
@@ -33,7 +33,7 @@ func NewMaxCntCache(maxCnt int32, c *LocalCache) *MaxCntCache {
 	return cache
 }
 
-func (c *MaxCntCache) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
+func (c *MaxCntCache) Set(ctx context.Context, key string, value []byte, expiration time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	_, ok := c.data[key]

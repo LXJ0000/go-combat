@@ -7,10 +7,10 @@ import (
 
 type Cache interface {
 	// Get returns the value for the given key.
-	Get(ctx context.Context, key string) (any, error)
+	Get(ctx context.Context, key string) ([]byte, error)
 
 	// Set sets the value for the given key with an optional expiration time.
-	Set(ctx context.Context, key string, value any, expiration time.Duration) error
+	Set(ctx context.Context, key string, value []byte, expiration time.Duration) error
 
 	// Delete deletes the value for the given key.
 	Delete(ctx context.Context, key string) error
@@ -19,5 +19,5 @@ type Cache interface {
 	Exists(ctx context.Context, key string) bool
 
 	// LoadAndDelete atomically loads the value for the given key and deletes it.
-	LoadAndDelete(ctx context.Context, key string) (any, error)
+	LoadAndDelete(ctx context.Context, key string) ([]byte, error)
 }

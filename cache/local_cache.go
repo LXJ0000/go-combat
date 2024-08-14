@@ -16,7 +16,7 @@ const cleanCount = 1000
 
 type LocalCacheOption func(*LocalCache)
 
-func WithEvict(evict func(key string, value any)) LocalCacheOption {
+func WithEvict(evict func(key string, value []byte)) LocalCacheOption {
 	return func(c *LocalCache) {
 		c.evict = evict
 	}
@@ -26,11 +26,11 @@ type LocalCache struct {
 	data  map[string]*item
 	mu    sync.RWMutex
 	close chan struct{}
-	evict func(key string, value any)
+	evict func(key string, value []byte) // evict callback function
 }
 
 type item struct {
-	value    any
+	value    []byte
 	deadline time.Time
 }
 
@@ -72,7 +72,7 @@ func NewLocalCache(interval time.Duration, opts ...LocalCacheOption) *LocalCache
 }
 
 // Get returns the value for the given key.
-func (c *LocalCache) Get(ctx context.Context, key string) (any, error) {
+func (c *LocalCache) Get(ctx context.Context, key string) ([]byte, error) {
 	c.mu.RLock()
 	item, ok := c.data[key]
 	c.mu.RUnlock()
@@ -100,13 +100,13 @@ func (c *LocalCache) Get(ctx context.Context, key string) (any, error) {
 
 // Set sets the value for the given key with an optional expiration time.
 // if expiration is zero, the value will not expire.
-func (c *LocalCache) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
+func (c *LocalCache) Set(ctx context.Context, key string, value []byte, expiration time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.set(key, value, expiration)
 }
 
-func (c *LocalCache) set(key string, value any, expiration time.Duration) error {
+func (c *LocalCache) set(key string, value []byte, expiration time.Duration) error {
 	var deadline time.Time
 	if expiration != 0 {
 		deadline = time.Now().Add(expiration)
@@ -135,7 +135,7 @@ func (c *LocalCache) Exists(ctx context.Context, key string) bool {
 }
 
 // LoadAndDelete returns the value for the given key and deletes it from the cache.
-func (c *LocalCache) LoadAndDelete(ctx context.Context, key string) (any, error) {
+func (c *LocalCache) LoadAndDelete(ctx context.Context, key string) ([]byte, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	item, ok := c.data[key]

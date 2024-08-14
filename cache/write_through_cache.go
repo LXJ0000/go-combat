@@ -8,10 +8,10 @@ import (
 
 type WriteThroughCache struct {
 	Cache
-	StoreFunc func(ctx context.Context, key string, val any) error
+	StoreFunc func(ctx context.Context, key string, val []byte) error
 }
 
-func NewWriteThroughCache(store Cache, storeFunc func(ctx context.Context, key string, val any) error) *WriteThroughCache {
+func NewWriteThroughCache(store Cache, storeFunc func(ctx context.Context, key string, val []byte) error) *WriteThroughCache {
 	return &WriteThroughCache{
 		Cache:     store,
 		StoreFunc: storeFunc,
@@ -19,7 +19,7 @@ func NewWriteThroughCache(store Cache, storeFunc func(ctx context.Context, key s
 }
 
 // Set writes the value to the cache and the underlying store.
-func (c *WriteThroughCache) Set(ctx context.Context, key string, val any, expiration time.Duration) error {
+func (c *WriteThroughCache) Set(ctx context.Context, key string, val []byte, expiration time.Duration) error {
     if err := c.StoreFunc(ctx, key, val); err != nil {
 		return err
 	}
@@ -27,7 +27,7 @@ func (c *WriteThroughCache) Set(ctx context.Context, key string, val any, expira
 }
 
 // SetAsync writes the value to the cache and the underlying store asynchronously.
-func (c *WriteThroughCache) SetAsync(ctx context.Context, key string, val any, expiration time.Duration) error {
+func (c *WriteThroughCache) SetAsync(ctx context.Context, key string, val []byte, expiration time.Duration) error {
     if err := c.StoreFunc(ctx, key, val); err != nil {
 		return err
 	}

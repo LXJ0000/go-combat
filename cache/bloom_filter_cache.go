@@ -12,13 +12,13 @@ type BloomFilterCache struct {
 }
 
 func NewBloomFilterCache(cache Cache, filter BloomFilter,
-	loadFunc func(ctx context.Context, key string) (any, error), expiration time.Duration,
+	loadFunc func(ctx context.Context, key string) ([]byte, error), expiration time.Duration,
 ) *BloomFilterCache {
 	g := &singleflight.Group{}
 	return &BloomFilterCache{
 		ReadThroughCache: ReadThroughCache{
 			Cache: cache,
-			LoadFunc: func(ctx context.Context, key string) (any, error) {
+			LoadFunc: func(ctx context.Context, key string) ([]byte, error) {
 				if !filter.Exists(ctx, key) {
 					return nil, errKeyNotFound
 				}

@@ -12,12 +12,12 @@ import (
 // ReadThroughCache 必须实现 LoadFunc 以及 Expiration
 type ReadThroughCache struct {
 	Cache
-	LoadFunc   func(ctx context.Context, key string) (any, error)
+	LoadFunc   func(ctx context.Context, key string) ([]byte, error)
 	Expiration time.Duration
 	g          *singleflight.Group
 }
 
-func NewReadThroughCache(cache Cache, loadFunc func(ctx context.Context, key string) (any, error), expiration time.Duration) *ReadThroughCache {
+func NewReadThroughCache(cache Cache, loadFunc func(ctx context.Context, key string) ([]byte, error), expiration time.Duration) *ReadThroughCache {
 	return &ReadThroughCache{
 		Cache:      cache,
 		LoadFunc:   loadFunc,
@@ -26,7 +26,7 @@ func NewReadThroughCache(cache Cache, loadFunc func(ctx context.Context, key str
 }
 
 // Get synchronization
-func (c *ReadThroughCache) Get(ctx context.Context, key string) (any, error) {
+func (c *ReadThroughCache) Get(ctx context.Context, key string) ([]byte, error) {
 	value, err := c.Cache.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, errKeyNotFound) {
@@ -45,7 +45,7 @@ func (c *ReadThroughCache) Get(ctx context.Context, key string) (any, error) {
 }
 
 // GetAsync asynchronous
-func (c *ReadThroughCache) GetAsync(ctx context.Context, key string) (any, error) {
+func (c *ReadThroughCache) GetAsync(ctx context.Context, key string) ([]byte, error) {
 	value, err := c.Cache.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, errKeyNotFound) {
@@ -65,7 +65,7 @@ func (c *ReadThroughCache) GetAsync(ctx context.Context, key string) (any, error
 }
 
 // GetAsyncPartial asynchronous
-func (c *ReadThroughCache) GetAsyncPartial(ctx context.Context, key string) (any, error) {
+func (c *ReadThroughCache) GetAsyncPartial(ctx context.Context, key string) ([]byte, error) {
 	value, err := c.Cache.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, errKeyNotFound) {
@@ -86,7 +86,7 @@ func (c *ReadThroughCache) GetAsyncPartial(ctx context.Context, key string) (any
 }
 
 // GetWithSingleflight
-func (c *ReadThroughCache) GetWithSingleflight(ctx context.Context, key string) (any, error) {
+func (c *ReadThroughCache) GetWithSingleflight(ctx context.Context, key string) ([]byte, error) {
 	value, err := c.Cache.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, errKeyNotFound) {
@@ -100,7 +100,7 @@ func (c *ReadThroughCache) GetWithSingleflight(ctx context.Context, key string) 
 				}
 				return value, nil
 			})
-			return val, err
+			return val.([]byte), err
 		}
 		return nil, err
 	}
