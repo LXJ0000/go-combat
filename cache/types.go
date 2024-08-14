@@ -20,4 +20,6 @@ type Cache interface {
 
 	// LoadAndDelete atomically loads the value for the given key and deletes it.
 	LoadAndDelete(ctx context.Context, key string) ([]byte, error)
+
+	OnEvicted(func(key string, value []byte))
 }

@@ -11,6 +11,7 @@ func (l *ArrayList[T]) Cap() int {
 func (l *ArrayList[T]) Len() int {
 	return len(l.values)
 }
+
 func (l *ArrayList[T]) Front() T {
 	return l.values[0]
 }
