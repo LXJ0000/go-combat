@@ -3,6 +3,7 @@ package _cache
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,10 +22,54 @@ var (
 
 	//go:embed lua/refresh_expiration.lua
 	luaRefreshExpiration string
+
+	//go:embed lua/lock.lua
+	luaLock string
 )
 
 type Client struct {
 	cmd redis.Cmdable
+}
+
+func (c *Client) Lock(ctx context.Context, key string, expiration time.Duration, contextTimeout time.Duration, retry RetryStrategy) (*Lock, error) {
+	var ticker *time.Ticker
+	value := uuid.New().String() // 唯一标识加锁的人
+	for {
+		ctxLock, cancel := context.WithTimeout(ctx, contextTimeout)
+		res, err := c.cmd.Eval(ctxLock, luaLock, []string{key}, value, expiration.Seconds()).Result()
+		cancel()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				slog.Warn("redis lock: lock failed with context timeout, retrying...")
+				continue
+			}
+			slog.Error("redis lock: lock failed with error", slog.Any("error", err))
+			return nil, err
+		}
+		if res == "OK" {
+			return &Lock{
+				cmd:        c.cmd,
+				key:        key,
+				value:      value,
+				expiration: expiration,
+				done:       make(chan struct{}),
+			}, nil
+		}
+		interval, ok := retry.Next()
+		if !ok {
+			return nil, ErrLockFail
+		}
+		if ticker == nil {
+			ticker = time.NewTicker(interval)
+		} else {
+			ticker.Reset(interval)
+		}
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 }
 
 func (c *Client) TryLock(ctx context.Context, key string, expiration time.Duration) (*Lock, error) {
