@@ -70,3 +70,5 @@ func testContinue() {
 type Content struct {
 	i int
 }
+
+// 解决方案 streamTextPreProcessStop := make(chan struct{}, 1)
